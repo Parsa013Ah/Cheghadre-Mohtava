@@ -333,6 +333,7 @@ export class BotWorker {
       const replyMarkup = (msg as any).replyMarkup;
       if (replyMarkup && replyMarkup.rows) {
         for (const row of replyMarkup.rows) {
+          if (!Array.isArray(row)) continue;
           for (const button of row) {
             if (button.url) {
               const btnMatches = [...button.url.matchAll(groupLinkRegex)];
