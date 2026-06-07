@@ -322,12 +322,31 @@ export class BotWorker {
     for (const msg of messages) {
       if (extractedGroups.length >= count) break;
 
-      const text = msg.message || '';
-      const matches = [...text.matchAll(groupLinkRegex)];
+      const allLinks: string[] = [];
 
-      for (const match of matches) {
+      const text = msg.message || '';
+      const textMatches = [...text.matchAll(groupLinkRegex)];
+      for (const m of textMatches) {
+        allLinks.push(m[0]);
+      }
+
+      const replyMarkup = (msg as any).replyMarkup;
+      if (replyMarkup && replyMarkup.rows) {
+        for (const row of replyMarkup.rows) {
+          for (const button of row) {
+            if (button.url) {
+              const btnMatches = [...button.url.matchAll(groupLinkRegex)];
+              for (const m of btnMatches) {
+                allLinks.push(m[0]);
+              }
+            }
+          }
+        }
+      }
+
+      for (const rawLink of allLinks) {
         if (extractedGroups.length >= count) break;
-        const link = match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+        const link = rawLink.startsWith('http') ? rawLink : `https://${rawLink}`;
 
         if (!existingSet.has(link) && !extractedGroups.some((g) => g.link === link)) {
           const group = this.groupRepository.create({ link, sourceChannel: channelLink });
