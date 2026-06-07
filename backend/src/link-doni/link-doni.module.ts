@@ -5,12 +5,12 @@ import { Group } from '../database/entities/group.entity';
 import { Account } from '../database/entities/account.entity';
 import { LinkDoniService } from './link-doni.service';
 import { LinkDoniController } from './link-doni.controller';
-import { BotWorker } from '../bot/bot.worker';
+import { BotModule } from '../bot/bot.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LinkDoniChannel, Group, Account])],
+  imports: [TypeOrmModule.forFeature([LinkDoniChannel, Group, Account]), BotModule],
   controllers: [LinkDoniController],
-  providers: [LinkDoniService, BotWorker],
+  providers: [LinkDoniService],
   exports: [LinkDoniService],
 })
 export class LinkDoniModule {}
