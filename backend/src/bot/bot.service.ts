@@ -133,7 +133,7 @@ export class BotService implements OnModuleInit {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       await this.botWorker.disconnectAccount(accountId);
-      await ctx.editMessageText('✅ اکانت با موفقیت قطع اتصال شد.', {
+      await this.safeEdit(ctx, '✅ اکانت با موفقیت قطع اتصال شد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت به لیست', 'accounts:0'),
       });
     });
@@ -141,10 +141,10 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^account:(\d+):delete_pv$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
-      await ctx.editMessageText('⏳ در حال حذف پیوی‌ها... لطفا صبر کنید.');
+      await this.safeEdit(ctx, '⏳ در حال حذف پیوی‌ها... لطفا صبر کنید.');
       try {
         const count = await this.botWorker.deleteAllPrivateChats(accountId);
-        await ctx.editMessageText(
+        await this.safeEdit(ctx, 
           `✅ <b>${count}</b> تا پیوی با موفقیت حذف شدند.`,
           {
             reply_markup: new InlineKeyboard().text(
@@ -154,7 +154,7 @@ export class BotService implements OnModuleInit {
           }
         );
       } catch (error) {
-        await ctx.editMessageText(
+        await this.safeEdit(ctx, 
           `❌ خطا: ${error.message}`,
           {
             reply_markup: new InlineKeyboard().text(
@@ -199,17 +199,17 @@ export class BotService implements OnModuleInit {
       const count = ctx.session.pendingCount;
 
       if (!channelLink || !count) {
-        await ctx.editMessageText('❌ خطا: اطلاعات استخراج یافت نشد. دوباره تلاش کنید.', {
+        await this.safeEdit(ctx, '❌ خطا: اطلاعات استخراج یافت نشد. دوباره تلاش کنید.', {
           reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
         });
         return;
       }
 
-      await ctx.editMessageText('⏳ در حال استخراج لینک‌ها... لطفا صبر کنید.');
+      await this.safeEdit(ctx, '⏳ در حال استخراج لینک‌ها... لطفا صبر کنید.');
 
       try {
         const groups = await this.botWorker.extractLinksFromChannel(accountId, channelLink, count);
-        await ctx.editMessageText(
+        await this.safeEdit(ctx, 
           `✅ <b>استخراج کامل شد!</b>\n\n` +
           `📊 <b>آمار:</b>\n` +
           `• لینک‌دونی: ${channelLink}\n` +
@@ -225,7 +225,7 @@ export class BotService implements OnModuleInit {
           }
         );
       } catch (error) {
-        await ctx.editMessageText(
+        await this.safeEdit(ctx, 
           `❌ خطا در استخراج:\n${error.message}`,
           {
             reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
@@ -252,7 +252,7 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^join:all$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.joinAllAccountsToAllGroups();
-      await ctx.editMessageText('✅ عملیات عضویت همه اکانت‌ها در همه گروه‌ها شروع شد.', {
+      await this.safeEdit(ctx, '✅ عملیات عضویت همه اکانت‌ها در همه گروه‌ها شروع شد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
       });
     });
@@ -260,7 +260,7 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^join:distribute$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.distributeGroupsAmongAccounts();
-      await ctx.editMessageText('✅ گروه‌ها بین اکانت‌ها تقسیم شدند و عملیات عضویت شروع شد.', {
+      await this.safeEdit(ctx, '✅ گروه‌ها بین اکانت‌ها تقسیم شدند و عملیات عضویت شروع شد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
       });
     });
@@ -289,7 +289,7 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^leave:all:all_accounts$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.leaveAllGroupsForAllAccounts();
-      await ctx.editMessageText('✅ عملیات خروج از همه گروه‌ها با همه اکانت‌ها شروع شد.', {
+      await this.safeEdit(ctx, '✅ عملیات خروج از همه گروه‌ها با همه اکانت‌ها شروع شد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
       });
     });
@@ -309,7 +309,7 @@ export class BotService implements OnModuleInit {
       await ctx.answerCallbackQuery();
       const groupId = parseInt(ctx.match[1]);
       await this.botWorker.leaveGroupForAllAccounts(groupId);
-      await ctx.editMessageText('✅ عملیات خروج از گروه با همه اکانت‌ها شروع شد.', {
+      await this.safeEdit(ctx, '✅ عملیات خروج از گروه با همه اکانت‌ها شروع شد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'leave_menu'),
       });
     });
@@ -323,7 +323,7 @@ export class BotService implements OnModuleInit {
       }
       keyboard.text('🔙 بازگشت', 'groups_menu');
       if (groups.length === 0) {
-        await ctx.editMessageText('⚠️ هیچ گروهی یافت نشد. ابتدا گروه استخراج کنید.', {
+        await this.safeEdit(ctx, '⚠️ هیچ گروهی یافت نشد. ابتدا گروه استخراج کنید.', {
           reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
         });
       } else {
@@ -350,7 +350,7 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^settings_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const botInfo = await ctx.api.getMe();
-      await ctx.editMessageText(
+      await this.safeEdit(ctx, 
         `⚙️ <b>تنظیمات ربات</b>\n\n` +
         `🤖 ربات: @${botInfo.username}\n` +
         `🆔 آیدی: ${botInfo.id}\n\n` +
@@ -378,7 +378,7 @@ export class BotService implements OnModuleInit {
       'از منوی زیر می‌توانید عملیات مورد نظر خود را انتخاب کنید:';
 
     if (ctx.callbackQuery?.message) {
-      await ctx.editMessageText(text, {
+      await this.safeEdit(ctx, text, {
         reply_markup: keyboard,
         parse_mode: 'HTML',
       });
@@ -431,7 +431,7 @@ export class BotService implements OnModuleInit {
       `روی هر اکانت کلیک کنید تا پنل مدیریت آن باز شود.`;
 
     if (ctx.callbackQuery?.message) {
-      await ctx.editMessageText(text, {
+      await this.safeEdit(ctx, text, {
         reply_markup: keyboard,
         parse_mode: 'HTML',
       });
@@ -449,7 +449,7 @@ export class BotService implements OnModuleInit {
     });
 
     if (!account) {
-      await ctx.editMessageText('⚠️ اکانت یافت نشد.', {
+      await this.safeEdit(ctx, '⚠️ اکانت یافت نشد.', {
         reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'accounts:0'),
       });
       return;
@@ -483,7 +483,7 @@ export class BotService implements OnModuleInit {
       `🆔 یوزر آیدی: ${account.userId || 'ثبت نشده'}\n` +
       `📊 وضعیت: ${statusMap[account.status] || account.status}`;
 
-    await ctx.editMessageText(text, {
+    await this.safeEdit(ctx, text, {
       reply_markup: keyboard,
       parse_mode: 'HTML',
     });
@@ -506,7 +506,7 @@ export class BotService implements OnModuleInit {
       'از این بخش می‌توانید لینک استخراج کنید، در گروه‌ها عضو شوید، خارج شوید و پیام ارسال کنید.';
 
     if (ctx.callbackQuery?.message) {
-      await ctx.editMessageText(text, {
+      await this.safeEdit(ctx, text, {
         reply_markup: keyboard,
         parse_mode: 'HTML',
       });
@@ -533,7 +533,7 @@ export class BotService implements OnModuleInit {
       '2️⃣ <b>تقسیم گروه‌ها بین اکانت‌ها</b>\n' +
       '   گروه‌ها به طور مساوی بین اکانت‌ها تقسیم می‌شوند.';
 
-    await ctx.editMessageText(text, {
+    await this.safeEdit(ctx, text, {
       reply_markup: keyboard,
       parse_mode: 'HTML',
     });
@@ -547,7 +547,7 @@ export class BotService implements OnModuleInit {
       .row()
       .text('🔙 بازگشت', 'groups_menu');
 
-    await ctx.editMessageText('🚪 <b>خروج از گروه‌ها</b>\n\nلطفا نوع خروج را انتخاب کنید:', {
+    await this.safeEdit(ctx, '🚪 <b>خروج از گروه‌ها</b>\n\nلطفا نوع خروج را انتخاب کنید:', {
       reply_markup: keyboard,
       parse_mode: 'HTML',
     });
@@ -725,13 +725,23 @@ export class BotService implements OnModuleInit {
     ctx.session.waitingFor = undefined;
   }
 
+  private async safeEdit(ctx: BotContext, text: string, options?: any): Promise<void> {
+    try {
+      await this.safeEdit(ctx, text, options);
+    } catch (error) {
+      if (!error.message?.includes('message is not modified')) {
+        this.logger.warn(`safeEdit failed: ${error.message}`);
+      }
+    }
+  }
+
   async showSendMessageMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('📤 انتخاب گروه و ارسال', 'send:group_select')
       .row()
       .text('🔙 بازگشت', 'groups_menu');
 
-    await ctx.editMessageText('📤 <b>ارسال پیام به گروه‌ها</b>\n\nلطفا گروه مورد نظر را انتخاب کنید:', {
+    await this.safeEdit(ctx, '📤 <b>ارسال پیام به گروه‌ها</b>\n\nلطفا گروه مورد نظر را انتخاب کنید:', {
       reply_markup: keyboard,
       parse_mode: 'HTML',
     });
