@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Bot as BotEntity, BotStatus } from '../database/entities/bot.entity';
 import { Account, AccountStatus } from '../database/entities/account.entity';
-import { Bot as GrammyBot, Context, InlineKeyboard, session } from 'grammy';
+import { Bot as GrammyBot, Context, InlineKeyboard, session, SessionFlavor } from 'grammy';
 import { BotWorker } from './bot.worker';
 
 interface SessionData {
@@ -16,19 +16,12 @@ interface SessionData {
   pendingCount?: number;
 }
 
-export interface AppSession {
-  waitingFor?: 'phone' | 'verify_code' | '2fa_password' | 'edit_name' | 'edit_bio' | 'link_doni_channel' | 'link_doni_count';
-  pendingAccountId?: number;
-  pendingPhone?: string;
-  pendingField?: string;
-  pendingChannelLink?: string;
-  pendingCount?: number;
-}
+type BotContext = Context & SessionFlavor<SessionData>;
 
 @Injectable()
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
-  private bot: GrammyBot;
+  private bot: GrammyBot<BotContext>;
   private isRunning = false;
 
   constructor(
@@ -93,30 +86,30 @@ export class BotService implements OnModuleInit {
   }
 
   private setupCommands() {
-    this.bot.command('start', async (ctx: Context) => {
+    this.bot.command('start', async (ctx: BotContext) => {
       await this.showMainMenu(ctx);
     });
   }
 
   private setupCallbacks() {
-    this.bot.callbackQuery(/^main_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^main_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.showMainMenu(ctx);
     });
 
-    this.bot.callbackQuery(/^accounts:(\d+)$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^accounts:(\d+)$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const page = parseInt(ctx.match[1]);
       await this.showAccountsPage(ctx, page);
     });
 
-    this.bot.callbackQuery(/^account:(\d+)$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^account:(\d+)$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       await this.showAccountPanel(ctx, accountId);
     });
 
-    this.bot.callbackQuery(/^account:(\d+):edit_name$/, async (ctx: Context & { session: SessionData }) => {
+    this.bot.callbackQuery(/^account:(\d+):edit_name$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       ctx.session.waitingFor = 'edit_name';
@@ -126,7 +119,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^account:(\d+):edit_bio$/, async (ctx: Context & { session: SessionData }) => {
+    this.bot.callbackQuery(/^account:(\d+):edit_bio$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       ctx.session.waitingFor = 'edit_bio';
@@ -136,7 +129,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^account:(\d+):disconnect$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^account:(\d+):disconnect$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       await this.botWorker.disconnectAccount(accountId);
@@ -145,7 +138,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^account:(\d+):delete_pv$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^account:(\d+):delete_pv$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       await ctx.editMessageText('⏳ در حال حذف پیوی‌ها... لطفا صبر کنید.');
@@ -172,7 +165,7 @@ export class BotService implements OnModuleInit {
       }
     });
 
-    this.bot.callbackQuery(/^add_account$/, async (ctx: Context & { session: SessionData }) => {
+    this.bot.callbackQuery(/^add_account$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       ctx.session.waitingFor = 'phone';
       await ctx.reply(
@@ -186,12 +179,12 @@ export class BotService implements OnModuleInit {
       );
     });
 
-    this.bot.callbackQuery(/^groups_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^groups_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.showGroupsMenu(ctx);
     });
 
-    this.bot.callbackQuery(/^link_doni$/, async (ctx: Context & { session: SessionData }) => {
+    this.bot.callbackQuery(/^link_doni$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       ctx.session.waitingFor = 'link_doni_channel';
       await ctx.reply('🔗 لینک چنل لینک‌دونی را ارسال کنید:', {
@@ -199,7 +192,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^extract:(\d+)$/, async (ctx: Context & { session: SessionData }) => {
+    this.bot.callbackQuery(/^extract:(\d+)$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const accountId = parseInt(ctx.match[1]);
       const channelLink = ctx.session.pendingChannelLink;
@@ -242,22 +235,22 @@ export class BotService implements OnModuleInit {
       }
     });
 
-    this.bot.callbackQuery(/^join_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^join_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.showJoinMenu(ctx);
     });
 
-    this.bot.callbackQuery(/^leave_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.showLeaveMenu(ctx);
     });
 
-    this.bot.callbackQuery(/^send_message_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^send_message_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.showSendMessageMenu(ctx);
     });
 
-    this.bot.callbackQuery(/^join:all$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^join:all$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.joinAllAccountsToAllGroups();
       await ctx.editMessageText('✅ عملیات عضویت همه اکانت‌ها در همه گروه‌ها شروع شد.', {
@@ -265,7 +258,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^join:distribute$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^join:distribute$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.distributeGroupsAmongAccounts();
       await ctx.editMessageText('✅ گروه‌ها بین اکانت‌ها تقسیم شدند و عملیات عضویت شروع شد.', {
@@ -273,7 +266,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^leave:all_groups$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave:all_groups$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await ctx.reply('آیا می‌خواهید از همه گروه‌ها خارج شوید؟', {
         reply_markup: new InlineKeyboard()
@@ -283,7 +276,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^leave:specific_group$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave:specific_group$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const groups = await this.botWorker.getAllGroups();
       const keyboard = new InlineKeyboard();
@@ -294,7 +287,7 @@ export class BotService implements OnModuleInit {
       await ctx.reply('لطفا گروه مورد نظر را انتخاب کنید:', { reply_markup: keyboard });
     });
 
-    this.bot.callbackQuery(/^leave:all:all_accounts$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave:all:all_accounts$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await this.botWorker.leaveAllGroupsForAllAccounts();
       await ctx.editMessageText('✅ عملیات خروج از همه گروه‌ها با همه اکانت‌ها شروع شد.', {
@@ -302,7 +295,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^leave:group:(\d+)$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave:group:(\d+)$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const groupId = parseInt(ctx.match[1]);
       await ctx.reply('می‌خواهید با کدام اکانت‌ها خارج شوید؟', {
@@ -313,7 +306,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^leave:group:(\d+):all$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^leave:group:(\d+):all$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const groupId = parseInt(ctx.match[1]);
       await this.botWorker.leaveGroupForAllAccounts(groupId);
@@ -322,7 +315,7 @@ export class BotService implements OnModuleInit {
       });
     });
 
-    this.bot.callbackQuery(/^send:group_select$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^send:group_select$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const groups = await this.botWorker.getAllGroupsWithAccounts();
       const keyboard = new InlineKeyboard();
@@ -339,7 +332,7 @@ export class BotService implements OnModuleInit {
       }
     });
 
-    this.bot.callbackQuery(/^web_panel$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^web_panel$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await ctx.reply(
         '🌐 **پنل وب**\n\n' +
@@ -350,12 +343,12 @@ export class BotService implements OnModuleInit {
       );
     });
 
-    this.bot.callbackQuery(/^account:(\d+):edit_photo$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^account:(\d+):edit_photo$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await ctx.reply('🖼️ برای تغییر عکس پروفایل، لطفا از پنل وب استفاده کنید.');
     });
 
-    this.bot.callbackQuery(/^settings_menu$/, async (ctx: Context) => {
+    this.bot.callbackQuery(/^settings_menu$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       const botInfo = await ctx.api.getMe();
       await ctx.editMessageText(
@@ -374,7 +367,7 @@ export class BotService implements OnModuleInit {
     });
   }
 
-  async showMainMenu(ctx: Context) {
+  async showMainMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('👤 اکانت‌ها', 'accounts:0')
       .text('👥 گروه‌ها', 'groups_menu')
@@ -398,7 +391,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  async showAccountsPage(ctx: Context, page: number) {
+  async showAccountsPage(ctx: BotContext, page: number) {
     const perPage = 5;
     const [accounts, total] = await this.accountRepository.findAndCount({
       skip: page * perPage,
@@ -451,7 +444,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  async showAccountPanel(ctx: Context, accountId: number) {
+  async showAccountPanel(ctx: BotContext, accountId: number) {
     const account = await this.accountRepository.findOne({
       where: { id: accountId },
     });
@@ -497,7 +490,7 @@ export class BotService implements OnModuleInit {
     });
   }
 
-  async showGroupsMenu(ctx: Context) {
+  async showGroupsMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('📥 استخراج از لینک‌دونی', 'link_doni')
       .row()
@@ -526,7 +519,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  async showJoinMenu(ctx: Context) {
+  async showJoinMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('📋 همه اکانت‌ها به همه گروه‌ها', 'join:all')
       .row()
@@ -547,7 +540,7 @@ export class BotService implements OnModuleInit {
     });
   }
 
-  async showLeaveMenu(ctx: Context) {
+  async showLeaveMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('🚪 خروج از همه گروه‌ها', 'leave:all_groups')
       .row()
@@ -562,7 +555,7 @@ export class BotService implements OnModuleInit {
   }
 
   private setupMessages() {
-    this.bot.on('message:text', async (ctx: Context & { session: SessionData }) => {
+    this.bot.on('message:text', async (ctx: BotContext) => {
       const text = ctx.message.text.trim();
       const waitingFor = ctx.session.waitingFor;
 
@@ -591,7 +584,7 @@ export class BotService implements OnModuleInit {
     });
   }
 
-  private async handlePhoneInput(ctx: Context & { session: SessionData }, phone: string) {
+  private async handlePhoneInput(ctx: BotContext, phone: string) {
     try {
       const result = await this.botWorker.sendCode(phone);
       ctx.session.pendingAccountId = result.account.id;
@@ -608,7 +601,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handleVerifyCode(ctx: Context & { session: SessionData }, code: string) {
+  private async handleVerifyCode(ctx: BotContext, code: string) {
     const accountId = ctx.session.pendingAccountId;
     if (!accountId) {
       await ctx.reply('❌ خطا: اکانت یافت نشد. دوباره تلاش کنید.');
@@ -633,7 +626,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handle2FA(ctx: Context & { session: SessionData }, password: string) {
+  private async handle2FA(ctx: BotContext, password: string) {
     const accountId = ctx.session.pendingAccountId;
     if (!accountId) return;
 
@@ -648,7 +641,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handleEditName(ctx: Context & { session: SessionData }, name: string) {
+  private async handleEditName(ctx: BotContext, name: string) {
     const accountId = ctx.session.pendingAccountId;
     if (!accountId) return;
 
@@ -665,7 +658,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handleEditBio(ctx: Context & { session: SessionData }, bio: string) {
+  private async handleEditBio(ctx: BotContext, bio: string) {
     const accountId = ctx.session.pendingAccountId;
     if (!accountId) return;
 
@@ -682,7 +675,7 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handleLinkDoniChannel(ctx: Context & { session: SessionData }, channelLink: string) {
+  private async handleLinkDoniChannel(ctx: BotContext, channelLink: string) {
     ctx.session.pendingChannelLink = channelLink;
     ctx.session.waitingFor = 'link_doni_count';
     await ctx.reply('🔢 تعداد گروه مورد نیاز را وارد کنید:', {
@@ -690,7 +683,7 @@ export class BotService implements OnModuleInit {
     });
   }
 
-  private async handleLinkDoniCount(ctx: Context & { session: SessionData }, countText: string) {
+  private async handleLinkDoniCount(ctx: BotContext, countText: string) {
     const channelLink = ctx.session.pendingChannelLink;
     const count = parseInt(countText);
     if (!channelLink || isNaN(count) || count < 1) {
@@ -724,7 +717,7 @@ export class BotService implements OnModuleInit {
     );
   }
 
-  async showSendMessageMenu(ctx: Context) {
+  async showSendMessageMenu(ctx: BotContext) {
     const keyboard = new InlineKeyboard()
       .text('📤 انتخاب گروه و ارسال', 'send:group_select')
       .row()

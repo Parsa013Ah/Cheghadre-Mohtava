@@ -14,7 +14,7 @@ import { Api } from 'telegram/tl';
 @Injectable()
 export class BotWorker {
   private readonly logger = new Logger(BotWorker.name);
-  private clients: Map<number, TelegramClient> = new Map();
+  private clients: Map<number, { client: TelegramClient; sessionObj: StringSession }> = new Map();
   private apiId: number;
   private apiHash: string;
 
@@ -36,12 +36,12 @@ export class BotWorker {
   }
 
   getClient(accountId: number): TelegramClient | undefined {
-    return this.clients.get(accountId);
+    return this.clients.get(accountId)?.client;
   }
 
-  async createClient(account: Account): Promise<TelegramClient> {
-    const stringSession = new StringSession(account.sessionString || '');
-    const client = new TelegramClient(stringSession, this.apiId, this.apiHash, {
+  async createClient(account: Account): Promise<{ client: TelegramClient; sessionObj: StringSession }> {
+    const sessionObj = new StringSession(account.sessionString || '');
+    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
       connectionRetries: 5,
       useWSS: true,
     });
@@ -57,16 +57,16 @@ export class BotWorker {
       }
     }
 
-    this.clients.set(account.id, client);
-    return client;
+    this.clients.set(account.id, { client, sessionObj });
+    return { client, sessionObj };
   }
 
-  async getOrCreateClient(account: Account): Promise<TelegramClient> {
+  async getOrCreateClient(account: Account): Promise<{ client: TelegramClient; sessionObj: StringSession }> {
     if (this.clients.has(account.id)) {
       try {
-        const client = this.clients.get(account.id);
-        if (client.connected) {
-          return client;
+        const entry = this.clients.get(account.id);
+        if (entry.client.connected) {
+          return entry;
         }
       } catch {}
     }
@@ -74,14 +74,17 @@ export class BotWorker {
   }
 
   async sendCode(phone: string): Promise<{ phoneCodeHash: string; account: Account }> {
-    const client = new TelegramClient(
-      new StringSession(''),
-      this.apiId,
-      this.apiHash,
-      { connectionRetries: 5, useWSS: true },
-    );
+    const sessionObj = new StringSession('');
+    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
+      connectionRetries: 5, useWSS: true,
+    });
 
     await client.connect();
+
+    if (!this.apiId || !this.apiHash) {
+      throw new Error('API_ID and API_HASH must be configured in .env file');
+    }
+
     const result = await client.sendCode(
       { apiId: this.apiId, apiHash: this.apiHash },
       phone,
@@ -108,12 +111,10 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const client = new TelegramClient(
-      new StringSession(''),
-      this.apiId,
-      this.apiHash,
-      { connectionRetries: 5, useWSS: true },
-    );
+    const sessionObj = new StringSession('');
+    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
+      connectionRetries: 5, useWSS: true,
+    });
 
     await client.connect();
 
@@ -136,7 +137,7 @@ export class BotWorker {
       throw error;
     }
 
-    account.sessionString = client.session.save();
+    account.sessionString = sessionObj.save();
     const me = await client.getMe() as any;
     account.userId = Number(me.id);
     account.firstName = me.firstName || '';
@@ -145,7 +146,7 @@ export class BotWorker {
     account.status = AccountStatus.ACTIVE;
 
     await this.accountRepository.save(account);
-    this.clients.set(account.id, client);
+    this.clients.set(account.id, { client, sessionObj });
 
     return account;
   }
@@ -154,26 +155,27 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const client = new TelegramClient(
-      new StringSession(''),
-      this.apiId,
-      this.apiHash,
-      { connectionRetries: 5, useWSS: true },
-    );
+    const sessionObj = new StringSession('');
+    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
+      connectionRetries: 5, useWSS: true,
+    });
 
     await client.connect();
 
     try {
       await client.signInWithPassword(
         { apiId: this.apiId, apiHash: this.apiHash },
-        { password },
+        {
+          password: () => Promise.resolve(password),
+          onError: () => {},
+        },
       );
     } catch (error: any) {
       client.destroy();
       throw new Error('Invalid 2FA password');
     }
 
-    account.sessionString = client.session.save();
+    account.sessionString = sessionObj.save();
     const me = await client.getMe() as any;
     account.userId = Number(me.id);
     account.firstName = me.firstName || '';
@@ -182,7 +184,7 @@ export class BotWorker {
     account.status = AccountStatus.ACTIVE;
 
     await this.accountRepository.save(account);
-    this.clients.set(account.id, client);
+    this.clients.set(account.id, { client, sessionObj });
 
     return account;
   }
@@ -191,7 +193,7 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const client = await this.getOrCreateClient(account);
+    const { client } = await this.getOrCreateClient(account);
 
     try {
       if (firstName) {
@@ -226,7 +228,7 @@ export class BotWorker {
     if (!account) throw new Error('Account not found');
 
     if (this.clients.has(accountId)) {
-      const client = this.clients.get(accountId);
+      const { client } = this.clients.get(accountId);
       try {
         await client.invoke(new Api.auth.LogOut());
       } catch {}
@@ -243,14 +245,14 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const client = await this.getOrCreateClient(account);
+    const { client } = await this.getOrCreateClient(account);
     let deletedCount = 0;
 
     try {
       const dialogs = await client.getDialogs({});
 
       for (const dialog of dialogs) {
-        if (dialog.isUser && !dialog.isSelf) {
+        if (dialog.isUser && Number(dialog.id) !== account.userId) {
           try {
             await client.invoke(
               new Api.messages.DeleteHistory({
@@ -282,7 +284,7 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const client = await this.getOrCreateClient(account);
+    const { client } = await this.getOrCreateClient(account);
     const existingLinks = (await this.groupRepository.find()).map((g) => g.link);
     const existingSet = new Set(existingLinks);
 
@@ -309,10 +311,7 @@ export class BotWorker {
         const link = match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
 
         if (!existingSet.has(link) && !extractedGroups.some((g) => g.link === link)) {
-          const group = this.groupRepository.create({
-            link,
-            sourceChannel: channelLink,
-          });
+          const group = this.groupRepository.create({ link, sourceChannel: channelLink });
           const saved = await this.groupRepository.save(group);
           existingSet.add(link);
           extractedGroups.push(saved);
@@ -324,8 +323,7 @@ export class BotWorker {
     let linkDoni = await this.linkDoniRepository.findOne({ where: { link: channelLink } });
     if (!linkDoni) {
       linkDoni = this.linkDoniRepository.create({
-        link: channelLink,
-        title: channelTitle,
+        link: channelLink, title: channelTitle,
         channelId: Number((channel as any).id),
         totalExtracted: extractedGroups.length,
       });
@@ -339,7 +337,7 @@ export class BotWorker {
 
   async joinGroup(account: Account, group: Group): Promise<JoinStatus> {
     try {
-      const client = await this.getOrCreateClient(account);
+      const { client } = await this.getOrCreateClient(account);
       const hash = group.link.includes('joinchat')
         ? group.link.split('joinchat/')[1]?.split('?')[0]
         : group.link.split('t.me/')[1]?.split('?')[0];
@@ -349,21 +347,16 @@ export class BotWorker {
         return JoinStatus.FAILED;
       }
 
-      const result = await client.invoke(
-        new Api.messages.ImportChatInvite({ hash }),
-      );
-
+      await client.invoke(new Api.messages.ImportChatInvite({ hash }));
       return JoinStatus.JOINED;
     } catch (error: any) {
-      this.logger.error(`Failed to join ${group.link} with account ${account.id}: ${error.message}`);
+      this.logger.error(`Failed to join ${group.link}: ${error.message}`);
       return JoinStatus.FAILED;
     }
   }
 
   async joinAllAccountsToAllGroups(): Promise<void> {
-    const accounts = await this.accountRepository.find({
-      where: { status: AccountStatus.ACTIVE },
-    });
+    const accounts = await this.accountRepository.find({ where: { status: AccountStatus.ACTIVE } });
     const groups = await this.groupRepository.find();
 
     for (const account of accounts) {
@@ -374,20 +367,14 @@ export class BotWorker {
         if (exists) continue;
 
         const status = await this.joinGroup(account, group);
-        const ag = this.accountGroupRepository.create({
-          accountId: account.id,
-          groupId: group.id,
-          status,
-        });
+        const ag = this.accountGroupRepository.create({ accountId: account.id, groupId: group.id, status });
         await this.accountGroupRepository.save(ag);
       }
     }
   }
 
   async distributeGroupsAmongAccounts(): Promise<void> {
-    const accounts = await this.accountRepository.find({
-      where: { status: AccountStatus.ACTIVE },
-    });
+    const accounts = await this.accountRepository.find({ where: { status: AccountStatus.ACTIVE } });
     const groups = await this.groupRepository.find();
 
     if (accounts.length === 0) return;
@@ -406,11 +393,7 @@ export class BotWorker {
         if (exists) continue;
 
         const status = await this.joinGroup(accounts[i], group);
-        const ag = this.accountGroupRepository.create({
-          accountId: accounts[i].id,
-          groupId: group.id,
-          status,
-        });
+        const ag = this.accountGroupRepository.create({ accountId: accounts[i].id, groupId: group.id, status });
         await this.accountGroupRepository.save(ag);
       }
     }
@@ -418,20 +401,24 @@ export class BotWorker {
 
   async leaveGroupForAccount(account: Account, group: Group): Promise<void> {
     try {
-      const client = await this.getOrCreateClient(account);
+      const { client } = await this.getOrCreateClient(account);
       const entity = await client.getEntity(group.link);
-      await client.invoke(
-        new Api.messages.LeaveChat({ chatId: entity.id }),
-      );
+
+      try {
+        await client.invoke(new Api.channels.LeaveChannel({ channel: entity.id }));
+      } catch {
+        await client.invoke(new Api.messages.DeleteChatUser({
+          chatId: entity.id,
+          userId: new Api.InputPeerSelf(),
+        }));
+      }
     } catch (error: any) {
       this.logger.error(`Failed to leave group ${group.link}: ${error.message}`);
     }
   }
 
   async leaveAllGroupsForAllAccounts(): Promise<void> {
-    const accounts = await this.accountRepository.find({
-      where: { status: AccountStatus.ACTIVE },
-    });
+    const accounts = await this.accountRepository.find({ where: { status: AccountStatus.ACTIVE } });
 
     for (const account of accounts) {
       const joinedGroups = await this.accountGroupRepository.find({
@@ -448,9 +435,7 @@ export class BotWorker {
   }
 
   async leaveGroupForAllAccounts(groupId: number): Promise<void> {
-    const accounts = await this.accountRepository.find({
-      where: { status: AccountStatus.ACTIVE },
-    });
+    const accounts = await this.accountRepository.find({ where: { status: AccountStatus.ACTIVE } });
     const group = await this.groupRepository.findOne({ where: { id: groupId } });
     if (!group) return;
 
@@ -466,16 +451,12 @@ export class BotWorker {
     }
   }
 
-  async sendMessageToGroup(
-    accountId: number,
-    groupId: number,
-    message: string,
-  ): Promise<void> {
+  async sendMessageToGroup(accountId: number, groupId: number, message: string): Promise<void> {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     const group = await this.groupRepository.findOne({ where: { id: groupId } });
     if (!account || !group) throw new Error('Account or Group not found');
 
-    const client = await this.getOrCreateClient(account);
+    const { client } = await this.getOrCreateClient(account);
     const entity = await client.getEntity(group.link);
     await client.sendMessage(entity, { message });
   }
@@ -485,10 +466,7 @@ export class BotWorker {
   }
 
   async getAllGroupsWithAccounts(): Promise<any[]> {
-    const groups = await this.groupRepository.find({
-      order: { createdAt: 'DESC' },
-    });
-
+    const groups = await this.groupRepository.find({ order: { createdAt: 'DESC' } });
     const result = [];
     for (const group of groups) {
       const count = await this.accountGroupRepository.count({
