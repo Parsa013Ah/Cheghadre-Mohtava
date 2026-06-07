@@ -579,8 +579,6 @@ export class BotService implements OnModuleInit {
       } else if (waitingFor === 'link_doni_count') {
         await this.handleLinkDoniCount(ctx, text);
       }
-
-      ctx.session.waitingFor = undefined;
     });
   }
 
@@ -597,6 +595,7 @@ export class BotService implements OnModuleInit {
         { reply_markup: { force_reply: true } }
       );
     } catch (error) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply(`❌ خطا: ${error.message}`);
     }
   }
@@ -621,6 +620,7 @@ export class BotService implements OnModuleInit {
         ctx.session.waitingFor = '2fa_password';
         await ctx.reply('🔑 این اکانت دارای رمز دو مرحله‌ای است. لطفا رمز را وارد کنید:');
       } else {
+        ctx.session.waitingFor = undefined;
         await ctx.reply(`❌ خطا: ${error.message}`);
       }
     }
@@ -632,11 +632,13 @@ export class BotService implements OnModuleInit {
 
     try {
       const account = await this.botWorker.verify2FA(accountId, password);
+      ctx.session.waitingFor = undefined;
       await ctx.reply(
         `✅ اکانت ${account?.firstName || account?.phone || ''} با موفقیت اضافه شد!`,
         { reply_markup: new InlineKeyboard().text('👤 مدیریت اکانت‌ها', 'accounts:0') }
       );
     } catch (error) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply(`❌ خطا: ${error.message}`);
     }
   }
@@ -647,6 +649,7 @@ export class BotService implements OnModuleInit {
 
     try {
       await this.botWorker.updateProfile(accountId, name);
+      ctx.session.waitingFor = undefined;
       await ctx.reply('✅ نام با موفقیت تغییر کرد.', {
         reply_markup: new InlineKeyboard().text(
           '🔙 بازگشت به اکانت',
@@ -654,6 +657,7 @@ export class BotService implements OnModuleInit {
         ),
       });
     } catch (error) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply(`❌ خطا: ${error.message}`);
     }
   }
@@ -664,6 +668,7 @@ export class BotService implements OnModuleInit {
 
     try {
       await this.botWorker.updateProfile(accountId, undefined, bio);
+      ctx.session.waitingFor = undefined;
       await ctx.reply('✅ بیو با موفقیت تغییر کرد.', {
         reply_markup: new InlineKeyboard().text(
           '🔙 بازگشت به اکانت',
@@ -671,6 +676,7 @@ export class BotService implements OnModuleInit {
         ),
       });
     } catch (error) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply(`❌ خطا: ${error.message}`);
     }
   }
@@ -687,6 +693,7 @@ export class BotService implements OnModuleInit {
     const channelLink = ctx.session.pendingChannelLink;
     const count = parseInt(countText);
     if (!channelLink || isNaN(count) || count < 1) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply('❌ لطفا یک عدد معتبر وارد کنید.');
       return;
     }
@@ -698,6 +705,7 @@ export class BotService implements OnModuleInit {
     });
 
     if (accounts.length === 0) {
+      ctx.session.waitingFor = undefined;
       await ctx.reply('❌ هیچ اکانت فعالی یافت نشد. ابتدا یک اکانت اضافه کنید.');
       return;
     }
@@ -715,6 +723,7 @@ export class BotService implements OnModuleInit {
       `اکانت مورد نظر برای استخراج را انتخاب کنید:`,
       { reply_markup: keyboard }
     );
+    ctx.session.waitingFor = undefined;
   }
 
   async showSendMessageMenu(ctx: BotContext) {
