@@ -727,7 +727,7 @@ export class BotService implements OnModuleInit {
 
   private async safeEdit(ctx: BotContext, text: string, options?: any): Promise<void> {
     try {
-      await this.safeEdit(ctx, text, options);
+      await ctx.editMessageText(text, options);
     } catch (error) {
       if (!error.message?.includes('message is not modified')) {
         this.logger.warn(`safeEdit failed: ${error.message}`);
