@@ -15,6 +15,7 @@ import { Api } from 'telegram/tl';
 export class BotWorker {
   private readonly logger = new Logger(BotWorker.name);
   private clients: Map<number, { client: TelegramClient; sessionObj: StringSession }> = new Map();
+  private pendingAuthClients: Map<number, { client: TelegramClient; sessionObj: StringSession }> = new Map();
   private apiId: number;
   private apiHash: string;
 
@@ -102,7 +103,7 @@ export class BotWorker {
       account.status = AccountStatus.WAITING_CODE;
     }
     await this.accountRepository.save(account);
-    client.destroy();
+    this.pendingAuthClients.set(account.id, { client, sessionObj });
 
     return { phoneCodeHash: result.phoneCodeHash, account };
   }
@@ -111,12 +112,21 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const sessionObj = new StringSession('');
-    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
-      connectionRetries: 5, useWSS: true,
-    });
+    let client: TelegramClient;
+    let sessionObj: StringSession;
 
-    await client.connect();
+    const pending = this.pendingAuthClients.get(accountId);
+    if (pending) {
+      client = pending.client;
+      sessionObj = pending.sessionObj;
+      this.pendingAuthClients.delete(accountId);
+    } else {
+      sessionObj = new StringSession('');
+      client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
+        connectionRetries: 5, useWSS: true,
+      });
+      await client.connect();
+    }
 
     try {
       await client.invoke(
@@ -130,7 +140,7 @@ export class BotWorker {
       if (error.errorMessage === 'SESSION_PASSWORD_NEEDED') {
         account.status = AccountStatus.WAITING_2FA;
         await this.accountRepository.save(account);
-        client.destroy();
+        this.pendingAuthClients.set(accountId, { client, sessionObj });
         throw new Error('2FA password required');
       }
       client.destroy();
@@ -155,12 +165,21 @@ export class BotWorker {
     const account = await this.accountRepository.findOne({ where: { id: accountId } });
     if (!account) throw new Error('Account not found');
 
-    const sessionObj = new StringSession('');
-    const client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
-      connectionRetries: 5, useWSS: true,
-    });
+    let client: TelegramClient;
+    let sessionObj: StringSession;
 
-    await client.connect();
+    const pending = this.pendingAuthClients.get(accountId);
+    if (pending) {
+      client = pending.client;
+      sessionObj = pending.sessionObj;
+      this.pendingAuthClients.delete(accountId);
+    } else {
+      sessionObj = new StringSession('');
+      client = new TelegramClient(sessionObj, this.apiId, this.apiHash, {
+        connectionRetries: 5, useWSS: true,
+      });
+      await client.connect();
+    }
 
     try {
       await client.signInWithPassword(
