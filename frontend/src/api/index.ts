@@ -9,6 +9,7 @@ export const accountApi = {
   updateProfile: (id: number, data: { firstName?: string; bio?: string }) =>
     api.put(`/accounts/${id}/profile`, data),
   disconnect: (id: number) => api.post(`/accounts/${id}/disconnect`),
+  deletePrivateChats: (id: number) => api.post(`/accounts/${id}/delete-private-chats`),
   remove: (id: number) => api.delete(`/accounts/${id}`),
 }
 

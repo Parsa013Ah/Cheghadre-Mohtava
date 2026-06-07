@@ -61,6 +61,12 @@ export class AccountController {
     return { message: 'Disconnected successfully' };
   }
 
+  @Post(':id/delete-private-chats')
+  async deletePrivateChats(@Param('id', ParseIntPipe) id: number) {
+    const count = await this.accountService.deletePrivateChats(id);
+    return { message: `${count} private chat(s) deleted`, count };
+  }
+
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.accountService.remove(id);

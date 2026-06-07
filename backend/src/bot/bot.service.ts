@@ -145,6 +145,33 @@ export class BotService implements OnModuleInit {
       });
     });
 
+    this.bot.callbackQuery(/^account:(\d+):delete_pv$/, async (ctx: Context) => {
+      await ctx.answerCallbackQuery();
+      const accountId = parseInt(ctx.match[1]);
+      await ctx.editMessageText('⏳ در حال حذف پیوی‌ها... لطفا صبر کنید.');
+      try {
+        const count = await this.botWorker.deleteAllPrivateChats(accountId);
+        await ctx.editMessageText(
+          `✅ **${count}** تا پیوی با موفقیت حذف شدند.`,
+          {
+            reply_markup: new InlineKeyboard().text(
+              '🔙 بازگشت به اکانت', `account:${accountId}`
+            ),
+            parse_mode: 'Markdown',
+          }
+        );
+      } catch (error) {
+        await ctx.editMessageText(
+          `❌ خطا: ${error.message}`,
+          {
+            reply_markup: new InlineKeyboard().text(
+              '🔙 بازگشت به اکانت', `account:${accountId}`
+            ),
+          }
+        );
+      }
+    });
+
     this.bot.callbackQuery(/^add_account$/, async (ctx: Context & { session: SessionData }) => {
       await ctx.answerCallbackQuery();
       ctx.session.waitingFor = 'phone';
@@ -450,6 +477,8 @@ export class BotService implements OnModuleInit {
       .row()
       .text('🖼 تغییر پروفایل', `account:${accountId}:edit_photo`)
       .text('🔴 قطع اتصال', `account:${accountId}:disconnect`)
+      .row()
+      .text('🗑 پاک کردن پیوی‌ها', `account:${accountId}:delete_pv`)
       .row()
       .text('🔙 بازگشت به لیست', 'accounts:0');
 

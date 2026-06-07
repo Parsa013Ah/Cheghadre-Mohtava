@@ -52,6 +52,10 @@ export class AccountService {
     return this.botWorker.disconnectAccount(id);
   }
 
+  async deletePrivateChats(id: number): Promise<number> {
+    return this.botWorker.deleteAllPrivateChats(id);
+  }
+
   async remove(id: number): Promise<void> {
     await this.disconnect(id);
     await this.accountRepository.delete(id);

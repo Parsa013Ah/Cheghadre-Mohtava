@@ -239,6 +239,41 @@ export class BotWorker {
     await this.accountRepository.save(account);
   }
 
+  async deleteAllPrivateChats(accountId: number): Promise<number> {
+    const account = await this.accountRepository.findOne({ where: { id: accountId } });
+    if (!account) throw new Error('Account not found');
+
+    const client = await this.getOrCreateClient(account);
+    let deletedCount = 0;
+
+    try {
+      const dialogs = await client.getDialogs({});
+
+      for (const dialog of dialogs) {
+        if (dialog.isUser && !dialog.isSelf) {
+          try {
+            await client.invoke(
+              new Api.messages.DeleteHistory({
+                peer: dialog.inputEntity,
+                maxId: 0,
+                justClear: false,
+                revoke: true,
+              }),
+            );
+            deletedCount++;
+          } catch (err) {
+            this.logger.warn(`Failed deleting dialog ${dialog.id}: ${err.message}`);
+          }
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to delete private chats for account ${accountId}: ${error.message}`);
+      throw new Error(`Failed to delete private chats: ${error.message}`);
+    }
+
+    return deletedCount;
+  }
+
   async extractLinksFromChannel(
     accountId: number,
     channelLink: string,

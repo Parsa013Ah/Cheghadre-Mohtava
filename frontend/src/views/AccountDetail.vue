@@ -56,6 +56,14 @@
             <p class="action-desc">اکانت به طور کامل حذف می‌شود</p>
             <button class="btn btn-danger btn-sm" @click="removeAccount">حذف</button>
           </div>
+          <div class="action-card danger-zone">
+            <span class="action-icon">🗑️</span>
+            <span class="action-title">پاک کردن پیوی‌ها</span>
+            <p class="action-desc">تمام چت‌های خصوصی اکانت پاک می‌شود</p>
+            <button class="btn btn-danger btn-sm" :disabled="deletingPv" @click="deletePrivateChats">
+              {{ deletingPv ? 'در حال حذف...' : 'پاک کردن پیوی‌ها' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -88,6 +96,7 @@ const loading = ref(true)
 const editFirstName = ref('')
 const editBio = ref('')
 const twoFAPassword = ref('')
+const deletingPv = ref(false)
 
 onMounted(async () => {
   const id = Number(route.params.id)
@@ -161,6 +170,19 @@ async function disconnect() {
     alert('اکانت با موفقیت قطع اتصال شد')
   } catch {
     alert('خطا در قطع اتصال')
+  }
+}
+
+async function deletePrivateChats() {
+  if (!confirm('آیا از پاک کردن تمام پیوی‌های این اکانت اطمینان دارید؟ این عمل قابل بازگشت نیست.')) return
+  deletingPv.value = true
+  try {
+    const res = await accountApi.deletePrivateChats(account.value.id)
+    alert(`${res.data.count} پیوی با موفقیت پاک شد`)
+  } catch {
+    alert('خطا در پاک کردن پیوی‌ها')
+  } finally {
+    deletingPv.value = false
   }
 }
 
