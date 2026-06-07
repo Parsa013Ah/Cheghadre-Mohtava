@@ -145,12 +145,12 @@ export class BotService implements OnModuleInit {
       try {
         const count = await this.botWorker.deleteAllPrivateChats(accountId);
         await ctx.editMessageText(
-          `✅ **${count}** تا پیوی با موفقیت حذف شدند.`,
+          `✅ <b>${count}</b> تا پیوی با موفقیت حذف شدند.`,
           {
             reply_markup: new InlineKeyboard().text(
               '🔙 بازگشت به اکانت', `account:${accountId}`
             ),
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           }
         );
       } catch (error) {
@@ -169,12 +169,12 @@ export class BotService implements OnModuleInit {
       await ctx.answerCallbackQuery();
       ctx.session.waitingFor = 'phone';
       await ctx.reply(
-        `📱 **افزودن اکانت جدید**\n\n` +
+        `📱 <b>افزودن اکانت جدید</b>\n\n` +
         `لطفا شماره تلفن را به همراه کد کشور ارسال کنید:\n` +
         `مثال: \`+989123456789\``,
         {
           reply_markup: { force_reply: true },
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
         }
       );
     });
@@ -210,8 +210,8 @@ export class BotService implements OnModuleInit {
       try {
         const groups = await this.botWorker.extractLinksFromChannel(accountId, channelLink, count);
         await ctx.editMessageText(
-          `✅ **استخراج کامل شد!**\n\n` +
-          `📊 **آمار:**\n` +
+          `✅ <b>استخراج کامل شد!</b>\n\n` +
+          `📊 <b>آمار:</b>\n` +
           `• لینک‌دونی: ${channelLink}\n` +
           `• تعداد درخواستی: ${count}\n` +
           `• لینک‌های جدید: ${groups.length}\n\n` +
@@ -221,15 +221,14 @@ export class BotService implements OnModuleInit {
               .text('👥 مدیریت گروه‌ها', 'groups_menu')
               .row()
               .text('📋 عضویت در گروه‌ها', 'join_menu'),
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           }
         );
       } catch (error) {
         await ctx.editMessageText(
-          `❌ **خطا در استخراج:**\n${error.message}`,
+          `❌ خطا در استخراج:\n${error.message}`,
           {
             reply_markup: new InlineKeyboard().text('🔙 بازگشت', 'groups_menu'),
-            parse_mode: 'Markdown',
           }
         );
       }
@@ -335,11 +334,11 @@ export class BotService implements OnModuleInit {
     this.bot.callbackQuery(/^web_panel$/, async (ctx: BotContext) => {
       await ctx.answerCallbackQuery();
       await ctx.reply(
-        '🌐 **پنل وب**\n\n' +
+        '🌐 <b>پنل وب</b>\n\n' +
         'برای دسترسی به پنل وب، آدرس زیر را در مرورگر باز کنید:\n\n' +
         '`http://localhost:5173`\n\n' +
         '💡 پنل وب امکانات کامل‌تری نسبت به ربات دارد.',
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       );
     });
 
@@ -352,7 +351,7 @@ export class BotService implements OnModuleInit {
       await ctx.answerCallbackQuery();
       const botInfo = await ctx.api.getMe();
       await ctx.editMessageText(
-        `⚙️ **تنظیمات ربات**\n\n` +
+        `⚙️ <b>تنظیمات ربات</b>\n\n` +
         `🤖 ربات: @${botInfo.username}\n` +
         `🆔 آیدی: ${botInfo.id}\n\n` +
         `📌 برای تغییر تنظیمات پیشرفته از پنل وب استفاده کنید.`,
@@ -361,7 +360,7 @@ export class BotService implements OnModuleInit {
             .text('🌐 باز کردن پنل وب', 'web_panel')
             .row()
             .text('🔙 منوی اصلی', 'main_menu'),
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
         }
       );
     });
@@ -375,18 +374,18 @@ export class BotService implements OnModuleInit {
       .text('⚙️ تنظیمات', 'settings_menu');
 
     const text =
-      '🤖 **به پنل مدیریت ربات تبلیغاتی خوش آمدید**\n\n' +
+      '🤖 <b>به پنل مدیریت ربات تبلیغاتی خوش آمدید</b>\n\n' +
       'از منوی زیر می‌توانید عملیات مورد نظر خود را انتخاب کنید:';
 
     if (ctx.callbackQuery?.message) {
       await ctx.editMessageText(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     } else {
       await ctx.reply(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     }
   }
@@ -426,7 +425,7 @@ export class BotService implements OnModuleInit {
     keyboard.row().text('🔙 منوی اصلی', 'main_menu');
 
     const text =
-      `👤 **مدیریت اکانت‌ها**\n\n` +
+      `👤 <b>مدیریت اکانت‌ها</b>\n\n` +
       `صفحه ${page + 1} از ${totalPages}\n` +
       `تعداد کل اکانت‌ها: ${total}\n\n` +
       `روی هر اکانت کلیک کنید تا پنل مدیریت آن باز شود.`;
@@ -434,12 +433,12 @@ export class BotService implements OnModuleInit {
     if (ctx.callbackQuery?.message) {
       await ctx.editMessageText(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     } else {
       await ctx.reply(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     }
   }
@@ -476,7 +475,7 @@ export class BotService implements OnModuleInit {
       .text('🔙 بازگشت به لیست', 'accounts:0');
 
     const text =
-      `👤 **مدیریت اکانت**\n\n` +
+      `👤 <b>مدیریت اکانت</b>\n\n` +
       `🆔 شناسه: ${account.id}\n` +
       `📱 شماره: ${account.phone || 'ثبت نشده'}\n` +
       `👤 نام: ${account.firstName || 'ثبت نشده'} ${account.lastName || ''}\n` +
@@ -486,7 +485,7 @@ export class BotService implements OnModuleInit {
 
     await ctx.editMessageText(text, {
       reply_markup: keyboard,
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
   }
 
@@ -503,18 +502,18 @@ export class BotService implements OnModuleInit {
       .text('🔙 منوی اصلی', 'main_menu');
 
     const text =
-      '👥 **مدیریت گروه‌ها**\n\n' +
+      '👥 <b>مدیریت گروه‌ها</b>\n\n' +
       'از این بخش می‌توانید لینک استخراج کنید، در گروه‌ها عضو شوید، خارج شوید و پیام ارسال کنید.';
 
     if (ctx.callbackQuery?.message) {
       await ctx.editMessageText(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     } else {
       await ctx.reply(text, {
         reply_markup: keyboard,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
       });
     }
   }
@@ -528,15 +527,15 @@ export class BotService implements OnModuleInit {
       .text('🔙 بازگشت', 'groups_menu');
 
     const text =
-      '📋 **نحوه عضویت را انتخاب کنید:**\n\n' +
-      '1️⃣ **همه اکانت‌ها به همه گروه‌ها**\n' +
+      '📋 <b>نحوه عضویت را انتخاب کنید:</b>\n\n' +
+      '1️⃣ <b>همه اکانت‌ها به همه گروه‌ها</b>\n' +
       '   همه اکانت‌ها در تمام گروه‌های استخراج شده عضو می‌شوند.\n\n' +
-      '2️⃣ **تقسیم گروه‌ها بین اکانت‌ها**\n' +
+      '2️⃣ <b>تقسیم گروه‌ها بین اکانت‌ها</b>\n' +
       '   گروه‌ها به طور مساوی بین اکانت‌ها تقسیم می‌شوند.';
 
     await ctx.editMessageText(text, {
       reply_markup: keyboard,
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
   }
 
@@ -548,9 +547,9 @@ export class BotService implements OnModuleInit {
       .row()
       .text('🔙 بازگشت', 'groups_menu');
 
-    await ctx.editMessageText('🚪 **خروج از گروه‌ها**\n\nلطفا نوع خروج را انتخاب کنید:', {
+    await ctx.editMessageText('🚪 <b>خروج از گروه‌ها</b>\n\nلطفا نوع خروج را انتخاب کنید:', {
       reply_markup: keyboard,
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
   }
 
@@ -732,9 +731,9 @@ export class BotService implements OnModuleInit {
       .row()
       .text('🔙 بازگشت', 'groups_menu');
 
-    await ctx.editMessageText('📤 **ارسال پیام به گروه‌ها**\n\nلطفا گروه مورد نظر را انتخاب کنید:', {
+    await ctx.editMessageText('📤 <b>ارسال پیام به گروه‌ها</b>\n\nلطفا گروه مورد نظر را انتخاب کنید:', {
       reply_markup: keyboard,
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
   }
 }
